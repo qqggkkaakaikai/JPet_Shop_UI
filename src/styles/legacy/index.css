@@ -1,0 +1,1203 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.App {
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    position: relative;
+    overflow-x: hidden;
+}
+
+.floating-pets {
+    position: absolute;
+    top: calc(50% + 20px);
+    left: 0;
+    width: 100%;
+    transform: translateY(-50%);
+    z-index: 1200;
+    pointer-events: none;
+}
+
+.floating-pet {
+    position: absolute;
+    top: calc(50% + 10px);
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 1300;
+}
+
+.floating-pet img {
+    height: auto;
+    display: block;
+    transition: transform 0.4s ease, filter 0.4s ease;
+    position: relative;
+    z-index: 1400;
+}
+
+.pet-dog {
+    left: clamp(-120px, -6vw, -40px);
+}
+
+.pet-dog img {
+    width: clamp(220px, 22vw, 300px);
+    transform-origin: center bottom;
+    transform: rotateY(-18deg) rotateX(6deg);
+    filter: drop-shadow(0 28px 32px rgba(15, 40, 70, 0.38));
+}
+
+.pet-cat {
+    right: clamp(-100px, -6vw, -30px);
+    top: calc(50% + 26px);
+}
+
+.pet-cat img {
+    width: clamp(160px, 16vw, 240px);
+    transform: rotate(-8deg);
+    filter: drop-shadow(-12px 24px 22px rgba(200, 60, 120, 0.35));
+}
+
+@media (max-width: 768px) {
+    .floating-pets {
+        display: none;
+    }
+}
+
+/* 背景图片层 - 无模糊效果 */
+.App::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('../images/背景3.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    opacity: 0.35;
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* 添加一个半透明遮罩层，让内容更清晰 */
+.App::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(245, 247, 250, 0.2) 0%, rgba(195, 207, 226, 0.2) 100%);
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* 商店Logo和名称区域 - 流光效果 */
+.shop-header {
+    background: linear-gradient(90deg, 
+        #ff6b9d 0%, 
+        #ffa07a 20%, 
+        #ffeb3b 40%, 
+        #4facfe 60%, 
+        #00f2fe 80%, 
+        #ff6b9d 100%
+    );
+    background-size: 200% 100%;
+    animation: headerShine 8s linear infinite;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    box-shadow: 0 6px 20px rgba(255, 107, 157, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+@keyframes headerShine {
+    0% {
+        background-position: 0% 50%;
+    }
+    100% {
+        background-position: 200% 50%;
+    }
+}
+
+/* 添加装饰性背景图案 - 左上角大爪子 */
+.shop-header::before {
+    content: '🐾';
+    position: absolute;
+    font-size: 150px;
+    opacity: 0.15;
+    left: -30px;
+    top: -30px;
+    transform: rotate(-15deg);
+    animation: pawFloat1 4s ease-in-out infinite;
+    z-index: 0;
+}
+
+@keyframes pawFloat1 {
+    0%, 100% {
+        transform: rotate(-15deg) translateY(0px);
+    }
+    50% {
+        transform: rotate(-15deg) translateY(-10px);
+    }
+}
+
+/* 右下角大爪子 */
+.shop-header::after {
+    content: '🐾';
+    position: absolute;
+    font-size: 150px;
+    opacity: 0.15;
+    right: -30px;
+    bottom: -30px;
+    transform: rotate(15deg);
+    animation: pawFloat2 4s ease-in-out infinite 0.5s;
+    z-index: 0;
+}
+
+@keyframes pawFloat2 {
+    0%, 100% {
+        transform: rotate(15deg) translateY(0px);
+    }
+    50% {
+        transform: rotate(15deg) translateY(-10px);
+    }
+}
+
+/* 添加更多装饰爪子 */
+.shop-header .paw-decoration {
+    position: absolute;
+    font-size: 60px;
+    opacity: 0.15;
+    pointer-events: none;
+    animation: pawPulse 3s ease-in-out infinite;
+    z-index: 1;
+}
+
+@keyframes pawPulse {
+    0%, 100% {
+        opacity: 0.15;
+        transform: scale(1) rotate(0deg);
+    }
+    50% {
+        opacity: 0.22;
+        transform: scale(1.15) rotate(10deg);
+    }
+}
+
+.shop-header .paw-1 { top: 10%; left: 15%; animation-delay: 0s; }
+.shop-header .paw-2 { top: 20%; right: 12%; animation-delay: 0.5s; }
+.shop-header .paw-3 { bottom: 15%; left: 20%; animation-delay: 1s; }
+.shop-header .paw-4 { bottom: 20%; right: 18%; animation-delay: 1.5s; }
+.shop-header .paw-5 { top: 50%; left: 8%; animation-delay: 2s; }
+.shop-header .paw-6 { top: 50%; right: 8%; animation-delay: 2.5s; }
+
+/* Logo区域 */
+.shop-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    animation: logoFloat 3s ease-in-out infinite;
+    margin-right: 30px;
+    z-index: 100;
+}
+
+@keyframes logoFloat {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-8px);
+    }
+}
+
+.logo-icon {
+    font-size: 48px;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+    z-index: 2;
+}
+
+.logo-pet-left {
+    font-size: 32px;
+    position: absolute;
+    left: -35px;
+    top: 5px;
+    animation: petBounceLeft 2s ease-in-out infinite;
+}
+
+.logo-pet-right {
+    font-size: 32px;
+    position: absolute;
+    right: -35px;
+    top: 5px;
+    animation: petBounceRight 2s ease-in-out infinite;
+}
+
+@keyframes petBounceLeft {
+    0%, 100% {
+        transform: translateX(0) rotate(-10deg);
+    }
+    50% {
+        transform: translateX(-5px) rotate(-15deg);
+    }
+}
+
+@keyframes petBounceRight {
+    0%, 100% {
+        transform: translateX(0) rotate(10deg);
+    }
+    50% {
+        transform: translateX(5px) rotate(15deg);
+    }
+}
+
+/* 商店信息区域 */
+.shop-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    z-index: 100;
+}
+
+.shop-name {
+    font-size: 32px;
+    font-weight: bold;
+    color: white;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    letter-spacing: 2px;
+    animation: nameGlow 2s ease-in-out infinite;
+}
+
+@keyframes nameGlow {
+    0%, 100% {
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    50% {
+        text-shadow: 2px 2px 8px rgba(255, 255, 255, 0.5), 0 0 20px rgba(255, 255, 255, 0.3);
+    }
+}
+
+.shop-slogan {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0;
+    text-align: center;
+    font-weight: 300;
+    letter-spacing: 1px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .shop-header {
+        padding: 15px;
+        gap: 15px;
+    }
+
+    .shop-logo {
+        transform: scale(0.8);
+    }
+
+    .logo-icon {
+        font-size: 40px;
+    }
+
+    .logo-pet-left,
+    .logo-pet-right {
+        font-size: 28px;
+    }
+
+    .shop-name {
+        font-size: 24px;
+        letter-spacing: 1px;
+    }
+
+    .shop-slogan {
+        font-size: 12px;
+    }
+}
+
+/* 顶部导航栏 */
+.tab-btn-box {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 15px 0;
+    position: sticky;
+    top: 0;
+    z-index: 600;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    background: transparent;
+    color: #666;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.tab-btn:hover {
+    color: #ff6b9d;
+}
+
+.tab-btn.active {
+    color: #ff6b9d;
+    font-weight: 600;
+}
+
+.tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 3px;
+    background: linear-gradient(90deg, #ff6b9d 0%, #ffa07a 50%, #ff6b9d 100%);
+    background-size: 200% 100%;
+    animation: tabIndicatorShine 2s linear infinite;
+    border-radius: 3px 3px 0 0;
+    box-shadow: 0 0 10px rgba(255, 107, 157, 0.5);
+}
+
+@keyframes tabIndicatorShine {
+    0% {
+        background-position: 0% 50%;
+    }
+    100% {
+        background-position: 200% 50%;
+    }
+}
+
+.cart-badge {
+    position: absolute;
+    top: 5px;
+    right: 20%;
+    background: #ff4d4f;
+    color: white;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 12px;
+    min-width: 18px;
+    text-align: center;
+}
+
+/* 轮播图区域 */
+.shop-head-box {
+    position: relative;
+    margin: 20px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    height: 400px;
+}
+
+.banner-title {
+    position: absolute;
+    bottom: 70px;
+    left: 40px;
+    z-index: 10;
+    text-align: left;
+    color: white;
+    padding: 15px 30px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 8px;
+    backdrop-filter: blur(5px);
+}
+
+.banner-title h2 {
+    margin: 0;
+    font-size: 48px;
+    font-weight: 700;
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
+    line-height: 1.2;
+}
+
+.banner-subtitle {
+    margin: 8px 0 0 0;
+    font-size: 20px;
+    font-weight: 400;
+    text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.5);
+    opacity: 0.95;
+}
+
+.banner-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 0.5s ease;
+}
+
+.banner-btn-left,
+.banner-btn-right {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 20;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+    font-size: 24px;
+    color: #ff6b9d;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+/* 按钮流光效果 */
+.banner-btn-left::before,
+.banner-btn-right::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -100%;
+    width: 100%;
+    height: 200%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 107, 157, 0.3),
+        transparent
+    );
+    transform: skewX(-25deg);
+    animation: bannerBtnShine 3s infinite;
+}
+
+@keyframes bannerBtnShine {
+    0% {
+        left: -100%;
+    }
+    50%, 100% {
+        left: 200%;
+    }
+}
+
+.banner-btn-left {
+    left: 20px;
+}
+
+.banner-btn-right {
+    right: 20px;
+}
+
+.banner-btn-left:hover,
+.banner-btn-right:hover {
+    background: linear-gradient(135deg, #ff6b9d 0%, #ffa07a 100%);
+    color: white;
+    transform: translateY(-50%) scale(1.15);
+    box-shadow: 0 6px 25px rgba(255, 107, 157, 0.5);
+}
+
+.banner-indicators {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    gap: 10px;
+}
+
+.indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.indicator:hover {
+    background: rgba(255, 255, 255, 0.9);
+    transform: scale(1.3);
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+}
+
+.indicator.active {
+    background: linear-gradient(90deg, 
+        #ff6b9d 0%, 
+        #ffa07a 50%, 
+        #ff6b9d 100%
+    );
+    background-size: 200% 100%;
+    animation: indicatorShine 2s linear infinite;
+    width: 35px;
+    border-radius: 6px;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 15px rgba(255, 107, 157, 0.6);
+}
+
+@keyframes indicatorShine {
+    0% {
+        background-position: 0% 50%;
+    }
+    100% {
+        background-position: 200% 50%;
+    }
+}
+
+/* 主内容区域 */
+.shop-main-ui {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    gap: 20px;
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* 左侧朋友圈 */
+.left-pyq-box {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    height: 520px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.left-pyq-box h3 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 20px;
+    border-bottom: 2px solid #ff6b9d;
+    padding-bottom: 10px;
+}
+
+.friend-posts-wrapper {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+}
+
+.friend-posts-scroller {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    animation: friendAutoScroll 40s linear infinite;
+}
+
+.friend-posts-wrapper:hover .friend-posts-scroller {
+    animation-play-state: paused;
+}
+
+.friend-posts-scroller::after {
+    content: '';
+    display: block;
+    height: 1px;
+}
+
+@keyframes friendAutoScroll {
+    0% {
+        transform: translateY(0);
+    }
+    100% {
+        transform: translateY(-50%);
+    }
+}
+
+.friend-post {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.friend-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.friend-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.friend-name {
+    font-weight: 600;
+    color: #333;
+}
+
+.friend-message {
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
+
+.friend-product-image {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+@media (max-width: 1200px) {
+    .left-pyq-box {
+        height: 460px;
+    }
+}
+
+@media (max-width: 768px) {
+    .left-pyq-box {
+        height: auto;
+    }
+
+    .friend-posts-wrapper {
+        position: static;
+        overflow: visible;
+    }
+
+    .friend-posts-scroller {
+        position: static;
+        animation: none;
+    }
+}
+
+/* 中间商品区域 */
+.center-goods-box {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.center-goods-box h3 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 24px;
+    border-bottom: 2px solid #43e97b;
+    padding-bottom: 10px;
+}
+
+.goods-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.goods-item {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.goods-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+}
+
+.goods-item img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.goods-item h4 {
+    color: #333;
+    margin-bottom: 8px;
+    font-size: 18px;
+}
+
+.goods-description {
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+.goods-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.goods-price {
+    color: #ff4d4f;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.goods-btn {
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(67, 233, 123, 0.3);
+}
+
+/* 商品按钮流光效果 */
+.goods-btn::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -100%;
+    width: 100%;
+    height: 200%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.6),
+        transparent
+    );
+    transform: skewX(-25deg);
+    animation: goodsBtnShine 2.5s infinite;
+}
+
+@keyframes goodsBtnShine {
+    0% {
+        left: -100%;
+    }
+    50%, 100% {
+        left: 200%;
+    }
+}
+
+.goods-btn:hover {
+    transform: scale(1.08) translateY(-2px);
+    box-shadow: 0 4px 15px rgba(67, 233, 123, 0.5);
+}
+
+/* 右侧客服消息 */
+.right-customer-service-message-box {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    height: fit-content;
+    max-height: 600px;
+    display: flex;
+    flex-direction: column;
+}
+
+.right-customer-service-message-box h3 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 20px;
+    border-bottom: 2px solid #ffa07a;
+    padding-bottom: 10px;
+}
+
+.service-list {
+    overflow-y: auto;
+    flex: 1;
+}
+
+.service-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.service-item:hover {
+    background: #e6f7ff;
+    transform: translateX(5px);
+    box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
+}
+
+.service-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.avatar-icon {
+    font-size: 24px;
+}
+
+.service-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.service-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 5px;
+    font-size: 16px;
+}
+
+.service-last-message {
+    color: #999;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.service-badge {
+    flex-shrink: 0;
+}
+
+.unread-count {
+    background: #ff4d4f;
+    color: white;
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 20px;
+    display: inline-block;
+    text-align: center;
+}
+
+.no-service-tip {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+}
+
+.no-service-tip p {
+    margin: 5px 0;
+}
+
+.tip-desc {
+    font-size: 12px;
+    color: #bbb;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+    .shop-main-ui {
+        grid-template-columns: 1fr;
+    }
+
+    .goods-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .goods-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .shop-head-box {
+        height: 300px;
+    }
+
+    .banner-title {
+        padding: 12px 25px;
+        bottom: 60px;
+        left: 20px;
+    }
+
+    .banner-title h2 {
+        font-size: 32px;
+    }
+
+    .banner-subtitle {
+        font-size: 16px;
+    }
+
+    .banner-btn-left,
+    .banner-btn-right {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+    }
+
+    .banner-btn-left {
+        left: 10px;
+    }
+
+    .banner-btn-right {
+        right: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .shop-head-box {
+        height: 250px;
+    }
+
+    .banner-title {
+        padding: 10px 20px;
+        bottom: 50px;
+        left: 15px;
+    }
+
+    .banner-title h2 {
+        font-size: 20px;
+    }
+
+    .banner-subtitle {
+        font-size: 13px;
+        margin-top: 5px;
+    }
+}
+
+/* 搜索栏容器 */
+.search-bar-container {
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    margin-bottom: 20px;
+}
+
+.search-box-wrapper {
+    max-width: 600px;
+    margin: 0 auto;
+    position: relative;
+}
+
+.search-input {
+    width: 100%;
+    padding: 12px 50px 12px 20px;
+    border: none;
+    border-radius: 25px;
+    font-size: 16px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    outline: none;
+}
+
+.search-input:focus {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+.search-button {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #667eea;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    color: white;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.search-button:hover {
+    background: #5568d3;
+}
+
+/* 自动补全建议列表 */
+.search-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    margin-top: 5px;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.search-suggestion-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.search-suggestion-item:hover {
+    background: #f5f5f5;
+}
+
+.search-suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-image {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 5px;
+    margin-right: 15px;
+}
+
+.suggestion-info {
+    flex: 1;
+}
+
+.suggestion-name {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.suggestion-name mark {
+    background: #ffd700;
+    padding: 0 2px;
+}
+
+.suggestion-price {
+    color: #ff4757;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.no-suggestions {
+    padding: 20px;
+    text-align: center;
+    color: #999;
+}
+
+/* 商品悬浮提示框 */
+.product-tooltip {
+    position: absolute;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    padding: 20px;
+    min-width: 300px;
+    max-width: 400px;
+    z-index: 10000;
+    animation: tooltipFadeIn 0.2s ease;
+    pointer-events: auto;
+}
+
+@keyframes tooltipFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tooltip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.tooltip-header h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+    flex: 1;
+}
+
+.tooltip-price {
+    font-size: 20px;
+    font-weight: bold;
+    color: #ff4757;
+    margin-left: 15px;
+}
+
+.tooltip-content {
+    margin-bottom: 15px;
+}
+
+.tooltip-description {
+    color: #666;
+    margin-bottom: 15px;
+    line-height: 1.6;
+    font-size: 14px;
+}
+
+.tooltip-specs {
+    display: flex;
+    gap: 15px;
+    font-size: 14px;
+    color: #999;
+    flex-wrap: wrap;
+}
+
+.tooltip-specs span {
+    padding: 4px 8px;
+    background: #f5f5f5;
+    border-radius: 4px;
+}
+
+.tooltip-footer {
+    display: flex;
+    gap: 10px;
+}
+
+.tooltip-btn {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+}
+
+.tooltip-btn:hover {
+    background: #f5f5f5;
+}
+
+.tooltip-btn.primary {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+.tooltip-btn.primary:hover {
+    background: #5568d3;
+}
