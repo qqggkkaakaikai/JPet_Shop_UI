@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { getContextPath } from '@/utils/context'
 import { captchaUrl } from '@/api'
@@ -10,6 +10,7 @@ import '@/styles/legacy/login.css'
 
 const ctx = getContextPath()
 const route = useRoute()
+const router = useRouter()
 
 const loginHeaderStyle = ref({})
 const captchaSrc = ref(captchaUrl())
@@ -21,6 +22,14 @@ const registerOpen = ref(false)
 const usernameError = ref('')
 const isCheckingUsername = ref(false)
 let usernameCheckTimeout = null
+
+function getLoginSuccessTarget() {
+  const raw = route.query.redirect
+  if (typeof raw === 'string' && raw.startsWith('/')) {
+    return raw
+  }
+  return '/index'
+}
 
 function getSeason(month) {
   if (month >= 3 && month <= 5) return 'spring'
@@ -118,22 +127,22 @@ async function onLoginSubmit(e) {
       redirect: 'manual',
     })
 
+    // 最稳妥：无论后端返回 302/200/opaqueredirect，优先以会话是否建立为准
+    if (await checkLoggedIn()) {
+      await router.replace(getLoginSuccessTarget())
+      return
+    }
+
     const loc = res.headers.get('Location') || ''
-    if (res.status === 302 || res.status === 303 || res.status === 301) {
-      if (loc.includes('/index')) {
-        window.location.assign(`${ctx}/index`)
-        return
-      }
-      if (loc.includes('/login')) {
-        const qs = loc.includes('?') ? loc.split('?')[1] : ''
-        const params = new URLSearchParams(qs)
-        const err = params.get('err')
-        const u = params.get('u')
-        errorMsg.value = err ? decodeURIComponent(err.replace(/\+/g, ' ')) : ''
-        inputUsername.value = u ? decodeURIComponent(u.replace(/\+/g, ' ')) : inputUsername.value
-        refreshCaptcha()
-        return
-      }
+    if (loc.includes('/login?')) {
+      const query = loc.split('?')[1] || ''
+      const params = new URLSearchParams(query)
+      const err = params.get('err')
+      const u = params.get('u')
+      errorMsg.value = err ? decodeURIComponent(err.replace(/\+/g, ' ')) : ''
+      inputUsername.value = u ? decodeURIComponent(u.replace(/\+/g, ' ')) : inputUsername.value
+      refreshCaptcha()
+      return
     }
 
     /**
@@ -142,7 +151,7 @@ async function onLoginSubmit(e) {
      */
     if (res.status === 200 || res.status === 0 || res.type === 'opaqueredirect') {
       if (await checkLoggedIn()) {
-        window.location.assign(`${ctx}/index`)
+        await router.replace(getLoginSuccessTarget())
         return
       }
     }
@@ -150,8 +159,9 @@ async function onLoginSubmit(e) {
     errorMsg.value =
       '登录失败：请确认验证码与图片完全一致（点击图片可刷新），账号密码正确。默认 admin 密码为 Admin123。'
     refreshCaptcha()
-  } catch {
-    errorMsg.value = '网络错误：请确认后端已在 8080 启动，且使用 npm run dev 并访问 /spa/ 路径。'
+  } catch (err) {
+    const detail = err instanceof Error ? `（${err.message}）` : ''
+    errorMsg.value = `网络错误：请确认后端已在 8080 启动，且使用 npm run dev 并访问 /spa/ 路径。${detail}`
     refreshCaptcha()
   }
 }
