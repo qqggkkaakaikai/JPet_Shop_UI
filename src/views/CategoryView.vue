@@ -5,10 +5,7 @@ import ShopHeader from '@/components/ShopHeader.vue'
 import ShopNav from '@/components/ShopNav.vue'
 import ProductDetailModal from '@/components/ProductDetailModal.vue'
 import { getImagePath } from '@/utils/imagePath'
-import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore } from '@/stores/catalog'
-import { useCartBadgeStore } from '@/stores/cartBadge'
-import { cartApi } from '@/api'
 import { useRouter } from 'vue-router'
 
 import '@/styles/legacy/common.css'
@@ -17,14 +14,31 @@ import '@/styles/legacy/category.css'
 
 const route = useRoute()
 const router = useRouter()
-const auth = useAuthStore()
 const catalog = useCatalogStore()
-const cartBadge = useCartBadgeStore()
 
 const selectedCategory = ref('全部')
 const sortBy = ref('default')
 
 const categoryButtons = computed(() => catalog.categories())
+
+function getPurchaseCount(product) {
+  const v = Number(product.purchaseCount ?? product.sales ?? 0)
+  return Number.isFinite(v) ? v : 0
+}
+
+function getHeatScore(product) {
+  const raw = product.heatScore
+  if (raw !== undefined && raw !== null) {
+    const v = Number(raw)
+    if (Number.isFinite(v)) return v
+  }
+  return getPurchaseCount(product)
+}
+
+function getStockCount(product) {
+  const v = Number(product.stockCount ?? product.stock ?? 0)
+  return Number.isFinite(v) ? v : 0
+}
 
 const filteredProducts = computed(() => {
   let list =
@@ -43,14 +57,17 @@ const filteredProducts = computed(() => {
   }
 
   switch (sortBy.value) {
-    case 'price-asc':
-      list.sort((a, b) => a.price - b.price)
+    case 'heat-asc':
+      list.sort((a, b) => getHeatScore(a) - getHeatScore(b))
       break
-    case 'price-desc':
-      list.sort((a, b) => b.price - a.price)
+    case 'heat-desc':
+      list.sort((a, b) => getHeatScore(b) - getHeatScore(a))
       break
-    case 'name':
-      list.sort((a, b) => a.name.localeCompare(b.name))
+    case 'purchase-asc':
+      list.sort((a, b) => getPurchaseCount(a) - getPurchaseCount(b))
+      break
+    case 'purchase-desc':
+      list.sort((a, b) => getPurchaseCount(b) - getPurchaseCount(a))
       break
     default:
       break
@@ -76,35 +93,8 @@ function openProductDetail(p) {
   detailOpen.value = true
 }
 
-async function quickAddToCart(product) {
-  if (!auth.user?.id) {
-    alert('请先登录')
-    router.push('/login')
-    return
-  }
-  const p = { ...product }
-  const spec = p.specifications?.[0] ?? null
-  const size = p.sizes?.[0] ?? null
-  const color = p.colors?.[0] ?? null
-  try {
-    await cartApi.add({
-      userId: auth.user.id,
-      productId: p.id,
-      quantity: 1,
-      selectedAttributes: { color, size, specification: spec },
-      isPurchased: false,
-    })
-    alert('已添加到购物车')
-    cartBadge.refresh()
-  } catch (e) {
-    alert(e.message || '添加失败')
-  }
-}
-
 onMounted(async () => {
   await catalog.loadAll()
-  await auth.refresh()
-  await cartBadge.refresh()
 })
 
 watch(
@@ -156,9 +146,10 @@ watch(
         <span class="filter-select-text">排序方式：</span>
         <select id="sortSelect" v-model="sortBy" class="filter-select-select">
           <option value="default">默认排序</option>
-          <option value="price-asc">价格从低到高</option>
-          <option value="price-desc">价格从高到低</option>
-          <option value="name">名称排序</option>
+          <option value="heat-asc">按热度递增</option>
+          <option value="heat-desc">按热度递减</option>
+          <option value="purchase-asc">按购买量递增</option>
+          <option value="purchase-desc">按购买量递减</option>
         </select>
       </div>
 
@@ -176,11 +167,13 @@ watch(
               {{ product.name }}
             </h4>
             <p class="kinds-item-description">{{ product.description }}</p>
+            <div class="kinds-item-metrics">
+              <span>购买人数：{{ getPurchaseCount(product) }}</span>
+              <span>热度：{{ getHeatScore(product) }}</span>
+              <span>库存：{{ getStockCount(product) }}</span>
+            </div>
             <div class="kinds-item-footer">
-              <span class="kinds-item-price">¥{{ product.price }}</span>
-              <button type="button" class="kinds-item-btn" @click="quickAddToCart(product)">
-                加入购物车
-              </button>
+              <span class="kinds-item-price">¥{{ Number(product.price || 0).toFixed(0) }}</span>
             </div>
           </div>
         </div>

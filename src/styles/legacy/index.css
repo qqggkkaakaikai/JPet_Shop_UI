@@ -563,7 +563,7 @@
 /* 主内容区域 */
 .shop-main-ui {
     display: grid;
-    grid-template-columns: 1fr 2fr 1fr;
+    grid-template-columns: 1fr 2.3fr 1fr;
     gap: 20px;
     padding: 20px;
     max-width: 1400px;
@@ -576,7 +576,7 @@
     border-radius: 12px;
     padding: 20px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-    height: 520px;
+    height: 650px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -658,6 +658,31 @@
     margin-bottom: 10px;
 }
 
+.review-item {
+    border-left: 3px solid #ff6b9d;
+}
+
+.review-product {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.review-rating {
+    font-size: 13px;
+    color: #f59e0b;
+    margin-bottom: 8px;
+}
+
+.review-item .friend-product-image {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
 .friend-product-image {
     width: 100%;
     height: 150px;
@@ -667,7 +692,7 @@
 
 @media (max-width: 1200px) {
     .left-pyq-box {
-        height: 460px;
+        height: 560px;
     }
 }
 
@@ -722,6 +747,10 @@
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
+.goods-item:active {
+    transform: translateY(-2px);
+}
+
 .goods-item img {
     width: 100%;
     height: 180px;
@@ -740,6 +769,22 @@
     color: #888;
     font-size: 14px;
     margin-bottom: 10px;
+}
+
+.goods-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 6px 0 12px;
+}
+
+.goods-metrics span {
+    font-size: 12px;
+    color: #555;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #eef3ff;
+    border: 1px solid #dbe6ff;
 }
 
 .goods-footer {
@@ -870,6 +915,17 @@
     color: #333;
     margin-bottom: 5px;
     font-size: 16px;
+}
+
+.service-role {
+    margin-left: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #667eea;
+    background: #eef2ff;
+    border-radius: 10px;
+    padding: 2px 8px;
+    vertical-align: middle;
 }
 
 .service-last-message {

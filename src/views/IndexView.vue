@@ -9,7 +9,6 @@ import { getContextPath } from '@/utils/context'
 import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore } from '@/stores/catalog'
 import { useCartBadgeStore } from '@/stores/cartBadge'
-import { cartApi } from '@/api'
 
 import '@/styles/legacy/common.css'
 import '@/styles/legacy/productDetail.css'
@@ -64,30 +63,54 @@ function startBannerAutoPlay() {
   bannerTimer = setInterval(nextBanner, 3000)
 }
 
-const friendPosts = [
+const buyerReviewSeeds = [
   {
-    name: '铲屎官小王',
-    message: '给我家主子买的新猫爬架，它超喜欢！每天都在上面玩耍~',
+    user: '铲屎官小王',
+    rating: 5,
+    content: '材质很结实，猫咪每天都在上面玩，安装也方便，值这个价格。',
   },
   {
-    name: '狗狗的麻麻',
-    message: '这款狗粮营养很全面，我家狗狗吃了毛发都变亮了，推荐！',
+    user: '狗狗的麻麻',
+    rating: 5,
+    content: '吃了一周状态明显变好，毛发更亮了，便便也更稳定。',
   },
   {
-    name: '猫奴小李',
-    message: '自动饮水机真的好用，再也不用担心猫咪喝不到新鲜水了',
+    user: '猫奴小李',
+    rating: 4,
+    content: '出差时非常省心，定时投喂准确，建议再加个更大粮仓版本。',
   },
   {
-    name: '铲屎官小张',
-    message: '刚给狗狗换了新项圈，夜跑也很安全，反光效果超棒！',
+    user: '铲屎官小张',
+    rating: 5,
+    content: '夜间反光效果很明显，手感也不错，遛狗安全感大大提升。',
   },
   {
-    name: '喵主子守护者',
-    message: '猫咪洗护套装真心好用，毛发顺滑有光泽，味道也好闻。',
+    user: '喵主子守护者',
+    rating: 4,
+    content: '防溅效果很好，清理方便，猫咪适应速度也比预期快。',
   },
 ]
 
 const hotProducts = computed(() => catalog.products.slice(0, 4))
+const hotProductsWithMetrics = computed(() =>
+  hotProducts.value.map((product, index) => {
+    const purchaseCount = Number(product.sales || 0)
+    const stockCount = Number(product.stock || 0)
+    const heatScore = Math.max(1, Math.round(purchaseCount / 20) + (index < 2 ? 2 : 1))
+    return { ...product, purchaseCount, stockCount, heatScore }
+  }),
+)
+
+const buyerReviews = computed(() =>
+  hotProductsWithMetrics.value.map((product, index) => {
+    const seed = buyerReviewSeeds[index % buyerReviewSeeds.length]
+    return {
+      ...seed,
+      productName: product.name,
+      productImage: product.image,
+    }
+  }),
+)
 
 const detailOpen = ref(false)
 const detailProduct = ref(null)
@@ -101,62 +124,26 @@ function closeProductDetail() {
   detailOpen.value = false
 }
 
-async function quickAddToCart(product) {
-  if (!auth.user?.id) {
-    alert('请先登录')
-    router.push('/login')
-    return
-  }
-  const p = { ...product }
-  const spec = p.specifications?.[0] ?? null
-  const size = p.sizes?.[0] ?? null
-  const color = p.colors?.[0] ?? null
-  try {
-    await cartApi.add({
-      userId: auth.user.id,
-      productId: p.id,
-      quantity: 1,
-      selectedAttributes: { color, size, specification: spec },
-      isPurchased: false,
-    })
-    alert('已添加到购物车')
-    cartBadge.refresh()
-  } catch (e) {
-    alert(e.message || '添加失败')
-  }
-}
-
-const storeRows = ref([])
-const noStoreService = ref(true)
-
-async function loadStoreServices() {
-  if (!auth.user?.id) {
-    storeRows.value = []
-    noStoreService.value = true
-    return
-  }
-  try {
-    const items = await cartApi.list(auth.user.id)
-    const stores = new Map()
-    ;(items || []).forEach((item) => {
-      const product = item.product || {}
-      const category = product.category || item.category
-      const storeName = getStoreNameByCategory(category)
-      if (!stores.has(storeName)) {
-        stores.set(storeName, {
-          name: storeName,
-          avatar: getStoreAvatar(category),
-          lastMessage: '您购买的商品已发货',
-        })
-      }
-    })
-    storeRows.value = Array.from(stores.values())
-    noStoreService.value = storeRows.value.length === 0
-  } catch {
-    storeRows.value = []
-    noStoreService.value = true
-  }
-}
+const buyerChatRows = computed(() =>
+  [
+    {
+      type: 'official',
+      name: '官方管理员',
+      avatar: '🏢',
+      role: '官方',
+      lastMessage: '订单异常、违规举报、平台规则可联系官方处理',
+      unread: 1,
+    },
+    ...buyerReviews.value.map((review, index) => ({
+      type: 'buyer',
+      name: review.user,
+      avatar: ['🧑', '👩', '👨', '🧕', '👱'][index % 5],
+      role: '买家',
+      lastMessage: `关于“${review.productName}”的评价与咨询`,
+      unread: index < 2 ? 1 : 0,
+    })),
+  ],
+)
 
 function getStoreNameByCategory(category) {
   const storeMap = {
@@ -277,7 +264,6 @@ onMounted(async () => {
   startBannerAutoPlay()
   await auth.refresh()
   await cartBadge.refresh()
-  await loadStoreServices()
 
   const wrapper = friendWrapper.value
   const scroller = wrapper?.querySelector?.('#friendPostsScroller')
@@ -318,7 +304,6 @@ onMounted(async () => {
 watch(
   () => auth.user,
   () => {
-    loadStoreServices()
     cartBadge.refresh()
   },
 )
@@ -397,16 +382,22 @@ onUnmounted(() => {
 
     <div class="shop-main-ui">
       <div ref="friendWrapper" class="left-pyq-box">
-        <h3>🐾 宠友圈</h3>
+        <h3>📝 商品用户评价</h3>
         <div id="friendPostsWrapper" class="friend-posts-wrapper">
           <div id="friendPostsScroller" class="friend-posts-scroller">
-            <div v-for="(post, idx) in friendPosts" :key="idx" class="friend-post">
+            <div v-for="(review, idx) in buyerReviews" :key="idx" class="friend-post review-item">
+              <img
+                :src="getImagePath(review.productImage)"
+                :alt="review.productName"
+                class="friend-product-image"
+              />
               <div class="friend-header">
                 <img :src="getImagePath('images/logo192.png')" alt="" class="friend-avatar" />
-                <span class="friend-name">{{ post.name }}</span>
+                <span class="friend-name">{{ review.user }}</span>
               </div>
-              <p class="friend-message">{{ post.message }}</p>
-              <img :src="getImagePath('images/logo192.png')" alt="宠物用品" class="friend-product-image" />
+              <div class="review-product">商品：{{ review.productName }}</div>
+              <div class="review-rating">评分：{{ '★'.repeat(review.rating) }}</div>
+              <p class="friend-message">{{ review.content }}</p>
             </div>
           </div>
         </div>
@@ -417,12 +408,13 @@ onUnmounted(() => {
         <div id="productGrid" class="goods-grid">
           <div v-if="!hotProducts.length" class="no-products">暂无商品</div>
           <div
-            v-for="product in hotProducts"
+            v-for="product in hotProductsWithMetrics"
             v-else
             :key="product.id"
             class="goods-item"
             @mouseenter="showProductTooltip($event, product)"
             @mouseleave="hideProductTooltip"
+            @click="openProductDetail(product)"
           >
             <img
               :src="getImagePath(product.image)"
@@ -432,45 +424,40 @@ onUnmounted(() => {
             />
             <h4 style="cursor: pointer" @click="openProductDetail(product)">{{ product.name }}</h4>
             <p class="goods-description">{{ product.description }}</p>
+            <div class="goods-metrics">
+              <span>购买人数：{{ product.purchaseCount }}</span>
+              <span>热度：{{ product.heatScore }}</span>
+              <span>库存：{{ product.stockCount }}</span>
+            </div>
             <div class="goods-footer">
               <span class="goods-price">¥{{ product.price }}</span>
-              <button type="button" class="goods-btn" @click="quickAddToCart(product)">
-                加入购物车
-              </button>
             </div>
           </div>
         </div>
       </div>
 
       <div class="right-customer-service-message-box">
-        <h3>💬 客服消息</h3>
+        <h3>💬 联系买家列表</h3>
         <div class="service-list">
-          <div class="service-item" @click="openChat('official', '官方客服')">
-            <div class="service-avatar">
-              <span class="avatar-icon">🏢</span>
-            </div>
-            <div class="service-info">
-              <div class="service-name">官方客服</div>
-              <div class="service-last-message">有什么可以帮助您的吗？</div>
-            </div>
-            <div class="service-badge">
-              <span class="unread-count">1</span>
-            </div>
-          </div>
-
-          <div v-for="s in storeRows" :key="s.name" class="service-item" @click="openChat('store', s.name)">
+          <div
+            v-for="s in buyerChatRows"
+            :key="s.name"
+            class="service-item"
+            @click="openChat(s.type, s.name)"
+          >
             <div class="service-avatar">
               <span class="avatar-icon">{{ s.avatar }}</span>
             </div>
             <div class="service-info">
-              <div class="service-name">{{ s.name }}</div>
+              <div class="service-name">
+                {{ s.name }}
+                <span class="service-role">{{ s.role }}</span>
+              </div>
               <div class="service-last-message">{{ s.lastMessage }}</div>
             </div>
-          </div>
-
-          <div v-show="noStoreService" id="noStoreService" class="no-service-tip">
-            <p>暂无店铺客服</p>
-            <p class="tip-desc">购买商品后可联系店铺客服</p>
+            <div class="service-badge" v-if="s.unread">
+              <span class="unread-count">{{ s.unread }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -500,9 +487,6 @@ onUnmounted(() => {
       </div>
       <div class="tooltip-footer">
         <button type="button" class="tooltip-btn" @click="openProductDetail(tooltip)">查看详情</button>
-        <button type="button" class="tooltip-btn primary" @click="quickAddToCart(tooltip)">
-          加入购物车
-        </button>
       </div>
     </div>
   </div>

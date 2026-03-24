@@ -3,10 +3,9 @@ import { useAuthStore } from '@/stores/auth'
 
 import IndexView from '@/views/IndexView.vue'
 import CategoryView from '@/views/CategoryView.vue'
-import CartView from '@/views/CartView.vue'
-import ProfileView from '@/views/ProfileView.vue'
-import MedicalView from '@/views/MedicalView.vue'
-import BoardingView from '@/views/BoardingView.vue'
+import LogisticsView from '@/views/LogisticsView.vue'
+import MerchantCenterView from '@/views/MerchantCenterView.vue'
+import ProductAuditView from '@/views/ProductAuditView.vue'
 import ChatView from '@/views/ChatView.vue'
 import LoginView from '@/views/LoginView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
@@ -20,10 +19,9 @@ const router = createRouter({
     { path: '/', redirect: '/index' },
     { path: '/index', name: 'index', component: IndexView },
     { path: '/category', name: 'category', component: CategoryView },
-    { path: '/cart', name: 'cart', component: CartView },
-    { path: '/profile', name: 'profile', component: ProfileView },
-    { path: '/medical', name: 'medical', component: MedicalView },
-    { path: '/boarding', name: 'boarding', component: BoardingView },
+    { path: '/cart', name: 'logistics', component: LogisticsView },
+    { path: '/profile', name: 'merchant-center', component: MerchantCenterView },
+    { path: '/medical', name: 'product-audit', component: ProductAuditView },
     { path: '/chat', name: 'chat', component: ChatView },
     { path: '/login', name: 'login', component: LoginView },
     { path: '/:pathMatch(.*)*', name: 'notfound', component: NotFoundView },

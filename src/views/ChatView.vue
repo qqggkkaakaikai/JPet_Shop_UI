@@ -1,11 +1,13 @@
 <script setup>
 import { nextTick, onMounted, ref } from 'vue'
-import { getContextPath } from '@/utils/context'
+import { useRouter } from 'vue-router'
+import ShopHeader from '@/components/ShopHeader.vue'
+import ShopNav from '@/components/ShopNav.vue'
 
 import '@/styles/legacy/common.css'
 import '@/styles/legacy/chat.css'
 
-const ctx = getContextPath()
+const router = useRouter()
 
 const chatType = ref('official')
 const chatName = ref('官方客服')
@@ -117,7 +119,7 @@ function showEmojiPicker() {
 }
 
 function goBack() {
-  window.location.href = `${ctx}/index`
+  router.push('/index')
 }
 
 onMounted(() => {
@@ -138,41 +140,54 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="chat-container">
-    <div class="chat-header">
-      <button type="button" class="back-btn" @click="goBack">← 返回</button>
-      <div class="chat-title">
-        <span id="chatAvatar" class="chat-avatar">{{ chatAvatar }}</span>
-        <span id="chatName">{{ chatName }}</span>
-      </div>
-      <div class="chat-status">在线</div>
-    </div>
+  <div class="App chat-app">
+    <ShopHeader />
+    <ShopNav />
 
-    <div id="chatMessages" ref="messagesEl" class="chat-messages">
-      <div
-        v-for="(m, i) in messages"
-        :key="i"
-        class="message"
-        :class="m.type === 'user' ? 'user' : 'service'"
-      >
-        <div class="message-avatar">{{ m.type === 'user' ? '👤' : chatAvatar }}</div>
-        <div class="message-content">
-          <div class="message-bubble">{{ m.content }}</div>
-          <div class="message-time">{{ m.time }}</div>
+    <div class="chat-page-shell">
+      <div class="chat-container">
+        <div class="chat-header">
+          <div class="meteor-layer" aria-hidden="true">
+            <span class="meteor meteor-1" />
+            <span class="meteor meteor-2" />
+            <span class="meteor meteor-3" />
+            <span class="meteor meteor-4" />
+          </div>
+          <button type="button" class="back-btn" @click="goBack">← 返回</button>
+          <div class="chat-title">
+            <span id="chatAvatar" class="chat-avatar">{{ chatAvatar }}</span>
+            <span id="chatName">{{ chatName }}</span>
+          </div>
+          <div class="chat-status">在线</div>
+        </div>
+
+        <div id="chatMessages" ref="messagesEl" class="chat-messages">
+          <div
+            v-for="(m, i) in messages"
+            :key="i"
+            class="message"
+            :class="m.type === 'user' ? 'user' : 'service'"
+          >
+            <div class="message-avatar">{{ m.type === 'user' ? '👤' : chatAvatar }}</div>
+            <div class="message-content">
+              <div class="message-bubble">{{ m.content }}</div>
+              <div class="message-time">{{ m.time }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-box">
+          <button type="button" class="emoji-btn" @click="showEmojiPicker">😊</button>
+          <input
+            id="messageInput"
+            v-model="messageInput"
+            type="text"
+            placeholder="请输入消息..."
+            @keypress="handleKeyPress"
+          />
+          <button type="button" class="send-btn" @click="sendChatMessage">发送</button>
         </div>
       </div>
-    </div>
-
-    <div class="chat-input-box">
-      <button type="button" class="emoji-btn" @click="showEmojiPicker">😊</button>
-      <input
-        id="messageInput"
-        v-model="messageInput"
-        type="text"
-        placeholder="请输入消息..."
-        @keypress="handleKeyPress"
-      />
-      <button type="button" class="send-btn" @click="sendChatMessage">发送</button>
     </div>
   </div>
 </template>

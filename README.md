@@ -1,10 +1,17 @@
-<<<<<<< HEAD
-# JPet_Shop_UI
-前端的代码全部放在这个仓库里面
-=======
 # JPet Store（Vue 前端）
 
 与后端项目 `pet_-shop` 配套：页面路由仍使用 `/index`、`/login` 等，由 Spring 转发到静态资源 `/spa/index.html`。
+
+## 商家系统命名说明（已更新）
+
+为和当前商家系统一致，文档与页面语义统一为：
+
+- `购物车` -> `商品物流`
+- `线上诊断` -> `商品上架审核`
+- `我的服务` -> `商家服务`
+- `个人简介` -> `商家介绍`
+
+代码层仍保留部分历史路由路径（如 `/cart`、`/medical`）以兼容现有跳转，不影响页面显示文案。
 
 ## 开发
 
@@ -41,4 +48,3 @@ npm run build
 
 - `PageController`：各页面 `GET` 改为 `forward:/spa/index.html`。
 - `UserAuthController`：登录/注册失败改为 `redirect:/login?...`，便于 SPA 读取查询参数。
->>>>>>> 10d9b2b (初始化前端仓库)

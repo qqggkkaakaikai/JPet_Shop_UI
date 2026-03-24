@@ -22,16 +22,13 @@ function go(path) {
       首页
     </button>
     <button class="tab-btn" :class="{ active: active === 'category' }" type="button" @click="go('/category')">
-      分类
+      商品
     </button>
     <button class="tab-btn" :class="{ active: active === 'medical' }" type="button" @click="go('/medical')">
-      线上诊断
-    </button>
-    <button class="tab-btn" :class="{ active: active === 'boarding' }" type="button" @click="go('/boarding')">
-      宠物寄养
+      商品上架审核
     </button>
     <button class="tab-btn" :class="{ active: active === 'cart' }" type="button" @click="go('/cart')">
-      购物车
+      商品物流
       <span v-show="visible" class="cart-badge" id="cartBadge">{{ count }}</span>
     </button>
     <button class="tab-btn" :class="{ active: active === 'profile' }" type="button" @click="go('/profile')">
