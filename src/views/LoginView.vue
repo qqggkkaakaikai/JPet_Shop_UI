@@ -5,12 +5,14 @@ import dayjs from 'dayjs'
 import { getContextPath } from '@/utils/context'
 import { captchaUrl } from '@/api'
 import { checkUsername } from '@/api'
+import { useAuthStore } from '@/stores/auth'
 
 import '@/styles/legacy/login.css'
 
 const ctx = getContextPath()
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 
 const loginHeaderStyle = ref({})
 const captchaSrc = ref(captchaUrl())
@@ -114,6 +116,12 @@ async function checkLoggedIn() {
   }
 }
 
+/** 会话已建立后必须先刷新 Pinia，否则路由守卫仍认为未登录会把 /index 打回 /login */
+async function navigateAfterLoginSuccess() {
+  await auth.refresh()
+  await router.replace(getLoginSuccessTarget())
+}
+
 async function onLoginSubmit(e) {
   e.preventDefault()
   const form = e.target
@@ -129,7 +137,7 @@ async function onLoginSubmit(e) {
 
     // 最稳妥：无论后端返回 302/200/opaqueredirect，优先以会话是否建立为准
     if (await checkLoggedIn()) {
-      await router.replace(getLoginSuccessTarget())
+      await navigateAfterLoginSuccess()
       return
     }
 
@@ -151,7 +159,7 @@ async function onLoginSubmit(e) {
      */
     if (res.status === 200 || res.status === 0 || res.type === 'opaqueredirect') {
       if (await checkLoggedIn()) {
-        await router.replace(getLoginSuccessTarget())
+        await navigateAfterLoginSuccess()
         return
       }
     }

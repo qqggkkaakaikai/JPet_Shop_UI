@@ -1,11 +1,12 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import ShopHeader from '@/components/ShopHeader.vue'
 import ShopNav from '@/components/ShopNav.vue'
 import { getImagePath } from '@/utils/imagePath'
 import { useAuthStore } from '@/stores/auth'
 import { useCartBadgeStore } from '@/stores/cartBadge'
 import { useCatalogStore } from '@/stores/catalog'
+import { useLocalOffShelfStore } from '@/stores/offShelfLocal'
 import { merchantProductAuditApi } from '@/api/merchant'
 
 import '@/styles/legacy/common.css'
@@ -14,6 +15,7 @@ import '@/styles/legacy/product-audit.css'
 const auth = useAuthStore()
 const cartBadge = useCartBadgeStore()
 const catalog = useCatalogStore()
+const localOffShelf = useLocalOffShelfStore()
 
 const pendingProducts = ref([])
 const selectedPendingId = ref(null)
@@ -271,8 +273,16 @@ const archivedList = computed(() =>
   archivedTab.value === 'off-shelf' ? offShelfProducts.value : failedProducts.value,
 )
 
+function syncCatalogOnShelfAfterUnmark(product) {
+  const k = localOffShelf.rowIdKey(product) ?? product?.id
+  localOffShelf.unmark(k)
+  const twin = catalog.getById(k)
+  if (twin) twin.status = '已上架'
+}
+
 function reopenProduct(product) {
-  const idx = offShelfProducts.value.findIndex((x) => x.id === product.id)
+  syncCatalogOnShelfAfterUnmark(product)
+  const idx = offShelfProducts.value.findIndex((x) => sameProductId(itemKey(x), itemKey(product)))
   if (idx >= 0) {
     offShelfProducts.value.splice(idx, 1)
   }
@@ -300,9 +310,75 @@ function primaryArchivedAction(product) {
 }
 
 function removeArchivedProduct(product) {
-  const idx = archivedList.value.findIndex((x) => x.id === product.id)
+  if (archivedTab.value === 'off-shelf') {
+    syncCatalogOnShelfAfterUnmark(product)
+  }
+  const idx = archivedList.value.findIndex((x) => sameProductId(itemKey(x), itemKey(product)))
   if (idx >= 0) archivedList.value.splice(idx, 1)
 }
+
+function sameProductId(a, b) {
+  return a != null && b != null && (a === b || String(a) === String(b))
+}
+
+function itemKey(item) {
+  return localOffShelf.rowIdKey(item) ?? null
+}
+
+const defaultOffShelfReason = '商家在商品页点击「暂时下架」'
+
+function upsertOffShelfRow(p, reason) {
+  const pk = itemKey(p)
+  if (pk == null) return
+  const idx = offShelfProducts.value.findIndex((x) => sameProductId(itemKey(x), pk))
+  const row = {
+    ...p,
+    id: p.id ?? pk,
+    reason: reason || p.reason || p.offShelfReason || defaultOffShelfReason,
+  }
+  if (idx >= 0) {
+    offShelfProducts.value[idx] = { ...offShelfProducts.value[idx], ...row }
+  } else {
+    offShelfProducts.value.unshift({ ...row })
+  }
+}
+
+/** catalog 中已下架 + 本地下架 id（含仅远程列表、不在 catalog 的快照）合并进「已下架」 */
+function mergeCatalogOffShelfIntoList() {
+  const delisted = catalog.products.filter((p) => String(p?.status || '') === '已下架')
+  const idsDone = new Set()
+  for (const p of delisted) {
+    const k = itemKey(p)
+    if (!k) continue
+    idsDone.add(k)
+    upsertOffShelfRow(p, p.reason || p.offShelfReason || defaultOffShelfReason)
+  }
+  for (const k of Object.keys(localOffShelf.byId)) {
+    if (!localOffShelf.byId[k]) continue
+    if (idsDone.has(k)) continue
+    const p = catalog.getById(k)
+    const base = p ? { ...p, status: '已下架' } : localOffShelf.getSnapshot(k)
+    if (!base) continue
+    idsDone.add(k)
+    upsertOffShelfRow(base, base.reason || base.offShelfReason || defaultOffShelfReason)
+  }
+}
+
+watch(
+  () => catalog.products,
+  () => {
+    mergeCatalogOffShelfIntoList()
+  },
+  { deep: true },
+)
+
+watch(
+  () => localOffShelf.byId,
+  () => {
+    mergeCatalogOffShelfIntoList()
+  },
+  { deep: true },
+)
 
 onMounted(async () => {
   await catalog.loadAll()
@@ -323,6 +399,7 @@ onMounted(async () => {
   } catch {
     initMockAuditData()
   }
+  mergeCatalogOffShelfIntoList()
 })
 
 onUnmounted(() => {
@@ -493,7 +570,7 @@ onUnmounted(() => {
 
         <div class="archived-list">
           <div v-if="!archivedList.length" class="archived-empty">暂无数据</div>
-          <div v-for="item in archivedList" v-else :key="`${archivedTab}-${item.id}`" class="archived-item">
+          <div v-for="item in archivedList" v-else :key="`${archivedTab}-${itemKey(item) || item.name}`" class="archived-item">
             <div class="archived-main">
               <img :src="getImagePath(item.image)" :alt="item.name" class="archived-image" />
               <div class="archived-info">
