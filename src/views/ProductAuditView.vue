@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCartBadgeStore } from '@/stores/cartBadge'
 import { useCatalogStore } from '@/stores/catalog'
 import { useLocalOffShelfStore } from '@/stores/offShelfLocal'
-import { merchantProductAuditApi } from '@/api/merchant'
+import { merchantProductAuditApi, merchantSpuApi } from '@/api/merchant'
 
 import '@/styles/legacy/common.css'
 import '@/styles/legacy/product-audit.css'
@@ -22,7 +22,9 @@ const selectedPendingId = ref(null)
 const previewSpec = ref('500g')
 const createMode = ref(false)
 const editingProductId = ref(null)
-const attrInput = ref('')
+const tagInput = ref('')
+const attrNameInput = ref('')
+const selectedVariantRowIdx = ref(-1)
 const archivedTab = ref('off-shelf')
 const offShelfProducts = ref([])
 const failedProducts = ref([])
@@ -31,11 +33,27 @@ const draftForm = ref({
   image: null,
   imageName: '',
   name: '',
-  price: '',
   description: '',
   stock: 0,
-  attributes: [],
+  tags: [],
+  attributeKeys: [],
+  variantRows: [],
 })
+
+function ensureRowValues(row) {
+  if (!row.values || typeof row.values !== 'object') row.values = {}
+  for (const k of draftForm.value.attributeKeys) {
+    if (row.values[k] === undefined) row.values[k] = ''
+  }
+  // 清理不存在的 key，避免残留
+  for (const k of Object.keys(row.values)) {
+    if (!draftForm.value.attributeKeys.includes(k)) delete row.values[k]
+  }
+}
+
+function syncRowsToKeys() {
+  for (const row of draftForm.value.variantRows) ensureRowValues(row)
+}
 
 const selectedPending = computed(() => {
   if (!pendingProducts.value.length) return null
@@ -76,12 +94,68 @@ function editCurrentPendingProduct() {
     image: p.image || null,
     imageName: p.image ? '当前商品图片' : '',
     name: p.name || '',
-    price: p.price ? String(p.price) : '',
     description: p.description || '',
     stock: Number(p.stock || 0),
-    attributes: p.specifications ? [...p.specifications] : [],
+    tags: Array.isArray(p.tags) ? [...p.tags] : [],
+    attributeKeys: [],
+    variantRows: [],
   }
-  attrInput.value = ''
+  // 解析已有 variantPrices：组合格式为 "key=value / key2=value"
+  if (Array.isArray(p.variantPrices) && p.variantPrices.length) {
+    const keySet = new Set()
+    const parsedRows = p.variantPrices.map((r) => {
+      const values = {}
+      const txt = String(r?.combination || '')
+      const parts = txt.split('/').map((x) => x.trim()).filter(Boolean)
+      for (const part of parts) {
+        const [kRaw, ...vRaw] = part.split('=')
+        const k = String(kRaw || '').trim()
+        const v = vRaw.join('=').trim()
+        if (!k) continue
+        keySet.add(k)
+        values[k] = v
+      }
+      return { values, price: String(r?.price ?? p.price ?? '') }
+    })
+    draftForm.value.attributeKeys = Array.from(keySet)
+    draftForm.value.variantRows = parsedRows.length ? parsedRows : []
+  } else {
+    // 兼容旧数据：当还没有 variantPrices 时，尝试从 specifications 回填编辑行
+    const specs = Array.isArray(p.specifications) ? p.specifications : []
+    const keySet = new Set()
+    const rows = []
+    for (const sp of specs) {
+      const txt = String(sp || '').trim()
+      if (!txt) continue
+      const values = {}
+      // 新格式示例：重量=1kg / 口味=鸡肉；旧格式示例：500g
+      const parts = txt.split('/').map((x) => x.trim()).filter(Boolean)
+      let parsedKv = false
+      for (const part of parts) {
+        if (!part.includes('=')) continue
+        const [kRaw, ...vRaw] = part.split('=')
+        const k = String(kRaw || '').trim()
+        const v = vRaw.join('=').trim()
+        if (!k) continue
+        values[k] = v
+        keySet.add(k)
+        parsedKv = true
+      }
+      if (!parsedKv) {
+        values['重量'] = txt
+        keySet.add('重量')
+      }
+      rows.push({ values, price: p.price ? String(p.price) : '' })
+    }
+    draftForm.value.attributeKeys = Array.from(keySet)
+    draftForm.value.variantRows = rows
+  }
+  if (!draftForm.value.attributeKeys.length && draftForm.value.variantRows.length) {
+    draftForm.value.attributeKeys = ['重量']
+  }
+  syncRowsToKeys()
+  tagInput.value = ''
+  selectedVariantRowIdx.value = draftForm.value.variantRows.length ? 0 : -1
 }
 
 async function withdrawCurrentRequest() {
@@ -121,12 +195,15 @@ function openCreatePanel() {
     image: null,
     imageName: '',
     name: p?.name || '',
-    price: p?.price ? String(p.price) : '',
     description: '',
     stock: p?.stock || 0,
-    attributes: [],
+    tags: [],
+    attributeKeys: [],
+    variantRows: [],
   }
-  attrInput.value = ''
+  syncRowsToKeys()
+  tagInput.value = ''
+  selectedVariantRowIdx.value = -1
 }
 
 function onPickLocalImage(event) {
@@ -142,17 +219,80 @@ function onPickLocalImage(event) {
   draftForm.value.imageName = file.name
 }
 
-function addDraftAttribute() {
-  const v = attrInput.value.trim()
+function addDraftTag() {
+  const v = tagInput.value.trim()
   if (!v) return
-  if (!draftForm.value.attributes.includes(v)) {
-    draftForm.value.attributes.push(v)
+  if (!draftForm.value.tags.includes(v)) {
+    draftForm.value.tags.push(v)
   }
-  attrInput.value = ''
+  tagInput.value = ''
 }
 
-function removeDraftAttribute(idx) {
-  draftForm.value.attributes.splice(idx, 1)
+function removeDraftTag(idx) {
+  draftForm.value.tags.splice(idx, 1)
+}
+
+function addAttributeKey() {
+  const k = attrNameInput.value.trim()
+  if (!k) return
+  if (!draftForm.value.attributeKeys.includes(k)) {
+    draftForm.value.attributeKeys.push(k)
+    syncRowsToKeys()
+  }
+  attrNameInput.value = ''
+}
+
+function removeAttributeKey(idx) {
+  draftForm.value.attributeKeys.splice(idx, 1)
+  syncRowsToKeys()
+}
+
+function addVariantRow() {
+  const row = { values: {}, price: '' }
+  draftForm.value.variantRows.push(row)
+  ensureRowValues(row)
+  selectedVariantRowIdx.value = draftForm.value.variantRows.length - 1
+}
+
+function removeVariantRow(idx) {
+  draftForm.value.variantRows.splice(idx, 1)
+}
+
+function deleteSelectedVariantRow() {
+  const idx = selectedVariantRowIdx.value
+  if (idx < 0 || idx >= draftForm.value.variantRows.length) {
+    alert('请先点击选中要删除的行')
+    return
+  }
+  removeVariantRow(idx)
+  if (!draftForm.value.variantRows.length) {
+    selectedVariantRowIdx.value = -1
+    return
+  }
+  selectedVariantRowIdx.value = Math.min(idx, draftForm.value.variantRows.length - 1)
+}
+
+function selectVariantRow(idx) {
+  selectedVariantRowIdx.value = idx
+}
+
+function extractVariantPayload() {
+  const rows = draftForm.value.variantRows
+    .map((r) => ({
+      values: r.values && typeof r.values === 'object' ? r.values : {},
+      price: Number(r.price),
+    }))
+    .filter((r) => Object.values(r.values).some((v) => String(v || '').trim()) || r.price)
+  if (!rows.length) return { ok: false, message: '请至少添加一行属性价格' }
+  const keys = draftForm.value.attributeKeys
+  if (!keys.length) return { ok: false, message: '请先添加属性名' }
+  if (rows.some((r) => keys.some((k) => !String(r.values?.[k] || '').trim()))) {
+    return { ok: false, message: '每行都需要填写所有属性值' }
+  }
+  if (rows.some((r) => !Number.isFinite(r.price) || r.price <= 0)) {
+    return { ok: false, message: '每行都需要填写有效价格' }
+  }
+  return { ok: true, rows }
 }
 
 async function submitNewProductReview() {
@@ -164,10 +304,23 @@ async function submitNewProductReview() {
     alert('请先输入商品名称')
     return
   }
-  if (!draftForm.value.price || Number(draftForm.value.price) <= 0) {
-    alert('请先输入有效价格')
+  if (!draftForm.value.tags.length) {
+    alert('请至少添加一个标签')
     return
   }
+  const variant = extractVariantPayload()
+  if (!variant.ok) {
+    alert(variant.message)
+    return
+  }
+  const minPrice = Math.min(...variant.rows.map((r) => r.price))
+  const keys = draftForm.value.attributeKeys
+  const toComboText = (values) => keys.map((k) => `${k}=${String(values?.[k] ?? '').trim()}`).join(' / ')
+  const specLabels = variant.rows.map((r) => toComboText(r.values))
+  const variantPrices = variant.rows.map((r) => ({
+    combination: toComboText(r.values),
+    price: r.price,
+  }))
   const imageForList =
     uploadPreviewUrl.value || (typeof draftForm.value.image === 'string' ? draftForm.value.image : '')
 
@@ -177,10 +330,12 @@ async function submitNewProductReview() {
     try {
       updatedFromApi = await merchantProductAuditApi.update(editingId, {
         name: draftForm.value.name.trim(),
-        price: Number(draftForm.value.price),
+        price: minPrice,
         stock: Number(draftForm.value.stock || 0),
         description: draftForm.value.description.trim(),
-        specifications: [...draftForm.value.attributes],
+        tags: [...draftForm.value.tags],
+        specifications: specLabels,
+        variantPrices,
       })
     } catch {
       alert('修改提交失败，请稍后重试')
@@ -192,15 +347,15 @@ async function submitNewProductReview() {
         ...pendingProducts.value[idx],
         ...(updatedFromApi || {}),
         name: draftForm.value.name.trim(),
-        price: Number(draftForm.value.price),
+        price: minPrice,
         stock: Number(draftForm.value.stock || 0),
         description: draftForm.value.description.trim(),
-        specifications: draftForm.value.attributes.length
-          ? [...draftForm.value.attributes]
-          : pendingProducts.value[idx].specifications,
+        tags: [...draftForm.value.tags],
+        specifications: specLabels,
         image: imageForList || pendingProducts.value[idx].image,
         status: 'reviewing',
         submittedAt: '刚刚',
+        variantPrices,
       }
       selectedPendingId.value = pendingProducts.value[idx].id
     }
@@ -214,11 +369,13 @@ async function submitNewProductReview() {
   try {
     createdFromApi = await merchantProductAuditApi.create({
       name: draftForm.value.name.trim(),
-      price: Number(draftForm.value.price),
+      price: minPrice,
       stock: Number(draftForm.value.stock || 0),
       description: draftForm.value.description.trim(),
       status: '待审核',
-      specifications: draftForm.value.attributes.length ? [...draftForm.value.attributes] : ['500g'],
+      tags: [...draftForm.value.tags],
+      specifications: specLabels,
+      variantPrices,
     })
   } catch {
     alert('提交审核失败，请稍后重试')
@@ -230,7 +387,7 @@ async function submitNewProductReview() {
     ...(createdFromApi || {}),
     id: createdFromApi?.id ?? newItemId,
     name: draftForm.value.name.trim(),
-    price: Number(draftForm.value.price),
+    price: minPrice,
     stock: Number(draftForm.value.stock || 0),
     sales: 0,
     description: draftForm.value.description.trim() || '新商品待审核',
@@ -239,7 +396,9 @@ async function submitNewProductReview() {
     status: 'reviewing',
     submittedBy: '当前运营',
     submittedAt: '刚刚',
-    specifications: draftForm.value.attributes.length ? [...draftForm.value.attributes] : ['500g'],
+    tags: [...draftForm.value.tags],
+    specifications: specLabels,
+    variantPrices,
   })
   selectedPendingId.value = createdFromApi?.id ?? newItemId
   createMode.value = false
@@ -259,10 +418,9 @@ function initMockAuditData() {
   if (pendingProducts.value.length) {
     selectPending(pendingProducts.value[0].id)
   }
-  offShelfProducts.value = source.slice(0, 3).map((p, idx) => ({
-    ...p,
-    reason: idx % 2 === 0 ? '库存清理中，暂时下架' : '商品策略调整，下架优化',
-  }))
+  // 兜底演示数据不再默认注入“已下架”，避免刷新后出现固定三条伪数据。
+  // 真实“已下架”由接口结果 + 本地下架标记 mergeCatalogOffShelfIntoList() 合并生成。
+  offShelfProducts.value = []
   failedProducts.value = source.slice(3, 6).map((p, idx) => ({
     ...p,
     reason: idx % 2 === 0 ? '图片信息不完整，请补全主图' : '属性字段不规范，请重新填写',
@@ -278,14 +436,30 @@ function syncCatalogOnShelfAfterUnmark(product) {
   localOffShelf.unmark(k)
   const twin = catalog.getById(k)
   if (twin) twin.status = '已上架'
+  if (product && typeof product === 'object') {
+    product.status = '已上架'
+  }
 }
 
-function reopenProduct(product) {
-  syncCatalogOnShelfAfterUnmark(product)
-  const idx = offShelfProducts.value.findIndex((x) => sameProductId(itemKey(x), itemKey(product)))
-  if (idx >= 0) {
-    offShelfProducts.value.splice(idx, 1)
+async function reopenProduct(product) {
+  const k = itemKey(product)
+  if (!k) {
+    alert('无法识别商品编号，暂时无法重新上架')
+    return
   }
+  // 尽量与服务端同步，失败时仍保持前端演示流程可继续。
+  try {
+    await merchantSpuApi.update(k, { status: '已上架' })
+  } catch {
+    // 兼容部分后端只提供审核接口或未实现状态更新：继续执行本地回滚。
+  }
+  syncCatalogOnShelfAfterUnmark(product)
+  for (let i = offShelfProducts.value.length - 1; i >= 0; i -= 1) {
+    if (sameProductId(itemKey(offShelfProducts.value[i]), k)) {
+      offShelfProducts.value.splice(i, 1)
+    }
+  }
+  alert('商品已重新上架')
 }
 
 function resubmitFailedProduct(product) {
@@ -460,8 +634,21 @@ onUnmounted(() => {
             <div class="create-form">
               <label class="form-label" for="newProductName">商品名称</label>
               <input id="newProductName" v-model="draftForm.name" type="text" placeholder="请输入商品名称" />
-              <label class="form-label" for="newProductPrice">商品价格（元）</label>
-              <input id="newProductPrice" v-model="draftForm.price" type="number" min="0" placeholder="请输入商品价格" />
+              <label class="form-label" for="newProductTag">商品标签</label>
+              <div class="attr-input-row">
+                <input id="newProductTag" v-model="tagInput" type="text" placeholder="请输入标签（如：无谷、低脂、新品）" />
+                <button type="button" @click="addDraftTag">添加</button>
+              </div>
+              <div class="attr-list">
+                <span
+                  v-for="(tag, idx) in draftForm.tags"
+                  :key="tag + idx"
+                  class="attr-chip"
+                  @click="removeDraftTag(idx)"
+                >
+                  {{ tag }} ×
+                </span>
+              </div>
               <label class="form-label" for="newProductStock">初始库存（件）</label>
               <input
                 id="newProductStock"
@@ -479,24 +666,67 @@ onUnmounted(() => {
               />
             </div>
             <div class="attr-editor">
-              <div class="attr-title">添加属性</div>
-              <div class="attr-input-row">
-                <input
-                  v-model="attrInput"
-                  type="text"
-                  placeholder="请输入属性值（如：无谷配方、5kg装、进口粮）"
-                />
-                <button type="button" @click="addDraftAttribute">添加</button>
+              <div class="attr-title">添加属性名（不确定有几个属性）</div>
+              <div class="attr-input-row variant-key-row">
+                <input v-model="attrNameInput" type="text" placeholder="属性名（如：重量、口味、颜色）" />
+                <button type="button" class="variant-btn variant-btn-primary" @click="addAttributeKey">添加</button>
               </div>
               <div class="attr-list">
                 <span
-                  v-for="(attr, idx) in draftForm.attributes"
-                  :key="attr + idx"
-                  class="attr-chip"
-                  @click="removeDraftAttribute(idx)"
+                  v-for="(k, idx) in draftForm.attributeKeys"
+                  :key="`attrkey-${k}-${idx}`"
+                  class="attr-chip variant-chip"
                 >
-                  {{ attr }} ×
+                  <span class="variant-chip-text">{{ k }}</span>
+                  <button type="button" class="variant-chip-x" @click="removeAttributeKey(idx)">×</button>
                 </span>
+              </div>
+
+              <div class="attr-title" style="margin-top: 10px">属性行定价（每行手动输入：各属性值 + 价格）</div>
+              <div class="variant-table">
+                <div class="variant-head">
+                  <template v-if="draftForm.attributeKeys.length">
+                    <span v-for="k in draftForm.attributeKeys" :key="`head-${k}`" class="variant-th">{{ k }}</span>
+                    <span class="variant-th">价格</span>
+                  </template>
+                  <div class="variant-head-actions">
+                    <button type="button" class="variant-btn variant-btn-add" @click="addVariantRow">+</button>
+                    <button
+                      type="button"
+                      class="variant-btn variant-btn-danger"
+                      :disabled="selectedVariantRowIdx < 0"
+                      @click="deleteSelectedVariantRow"
+                    >
+                      -
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="variant-rows">
+                <div
+                  v-for="(row, idx) in draftForm.variantRows"
+                  :key="`variant-${idx}`"
+                  class="variant-row"
+                  :class="{ 'variant-row-active': idx === selectedVariantRowIdx }"
+                  @click="selectVariantRow(idx)"
+                >
+                  <input
+                    v-for="k in draftForm.attributeKeys"
+                    :key="`cell-${idx}-${k}`"
+                    v-model="row.values[k]"
+                    class="variant-input"
+                    type="text"
+                    :placeholder="`请输入${k}`"
+                  />
+                  <input
+                    v-model="row.price"
+                    class="variant-input variant-input-price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="请输入价格"
+                  />
+                </div>
               </div>
             </div>
             <button type="button" class="submit-review-btn" @click="submitNewProductReview">提交审核</button>
@@ -595,3 +825,192 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.variant-key-row input {
+  flex: 1;
+}
+
+.variant-btn {
+  height: 36px;
+  min-width: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 700;
+  line-height: 1;
+  transition: transform 0.08s ease, filter 0.12s ease, background 0.12s ease;
+}
+
+.variant-btn:active {
+  transform: translateY(1px);
+}
+
+.variant-btn-primary {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.18);
+}
+
+.variant-btn-add {
+  background: linear-gradient(135deg, #ff8a5b 0%, #ff6b9d 100%);
+  color: #fff;
+  width: 44px;
+  padding: 0;
+  border-radius: 999px;
+  box-shadow: 0 10px 18px rgba(255, 107, 157, 0.22);
+}
+
+.variant-btn-danger {
+  background: #0f172a;
+  color: #fff;
+  width: 44px;
+  padding: 0;
+  border-radius: 14px;
+  opacity: 0.9;
+}
+
+.variant-btn-danger:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.variant-btn-danger:hover {
+  opacity: 1;
+  filter: brightness(1.05);
+}
+
+.variant-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 6px;
+  cursor: default;
+}
+
+.variant-chip-text {
+  font-weight: 700;
+}
+
+.variant-chip-x {
+  border: none;
+  background: rgba(29, 78, 216, 0.12);
+  color: #1d4ed8;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  line-height: 22px;
+  font-weight: 900;
+}
+
+.variant-chip-x:hover {
+  background: rgba(29, 78, 216, 0.18);
+}
+
+.variant-table {
+  margin-top: 10px;
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.variant-head {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)) minmax(96px, 1fr) 56px;
+  gap: 10px;
+  align-items: center;
+}
+
+.variant-head-actions {
+  display: inline-flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.variant-head-actions .variant-btn-danger {
+  width: 44px;
+  border-radius: 999px;
+}
+
+.variant-th {
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+  padding-left: 2px;
+}
+
+.variant-rows {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.variant-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)) minmax(96px, 1fr) 56px;
+  gap: 10px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+}
+
+.variant-row:hover {
+  border-color: rgba(37, 99, 235, 0.35);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
+}
+
+.variant-row-active {
+  border-color: rgba(245, 158, 11, 0.8);
+  box-shadow: 0 10px 22px rgba(245, 158, 11, 0.14);
+}
+
+.variant-row-active .variant-input {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.variant-input {
+  width: 100%;
+  height: 36px;
+  border-radius: 12px;
+}
+
+.variant-input:focus {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.22);
+}
+
+.variant-input-price {
+  text-align: left;
+}
+
+@media (max-width: 768px) {
+  /* 窄屏：输入区左侧堆叠，删除按钮固定右侧，避免 “-” 被挤到最下面 */
+  .variant-head {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .variant-th {
+    display: none;
+  }
+
+  .variant-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .variant-head-actions {
+    justify-content: flex-start;
+  }
+}
+</style>
